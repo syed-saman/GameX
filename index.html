@@ -70,7 +70,7 @@
     }
     function initApp() {
       const RATES = { single:80,double:60 };
-      const TIME_OPTIONS = [{label:'15 min',minutes:15},{label:'30 min',minutes:30},{label:'1 hr',minutes:60}];
+      const TIME_OPTIONS = [{label:'30 min',minutes:30},{label:'1 hr',minutes:60},{label:'15 min',minutes:15}];
       const HISTORY_KEY = 'gameShopHistory';
       const alertSound = document.getElementById('alert-sound');
       class GameSystem {
@@ -95,7 +95,7 @@
           // localStorage
           const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');h.push(rec);localStorage.setItem(HISTORY_KEY,JSON.stringify(h));
           // send to Google Sheets via Apps Script
-          try{await fetch(SHEET_WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)});}catch(e){console.error('Sheet log failed',e);} }
+          try{await fetch(SHEET_WEBHOOK_URL,{method:'POST',mode: 'cors', headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)});}catch(e){console.error('Sheet log failed',e);} }
       }
       function render(){const b=document.getElementById('history-body');b.innerHTML='';JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;b.appendChild(tr);});}
       document.getElementById('clear-history').addEventListener('click',()=>{localStorage.removeItem(HISTORY_KEY);render();});
