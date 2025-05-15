@@ -8,151 +8,29 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pap6Y8yM6Zdh6+Uz9Q6VwH8zY3H0rZpF+QZCmklJ1eG5G8vJ3OeK9bp1f+Ujw5lRBB8+0uG5Zp2dEvjBzp9g9g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     /* Authentication overlay */
-    #auth-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.9);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999;
-      flex-direction: column;
-      color: #e10600;
-      font-family: 'Orbitron', sans-serif;
-    }
-    #auth-overlay input {
-      font-size: 1.2em;
-      padding: 10px;
-      border: 2px solid #e10600;
-      border-radius: 6px;
-      background: #232323;
-      color: #fff;
-      text-align: center;
-      width: 150px;
-      margin-top: 10px;
-    }
-    #auth-overlay button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-size: 1em;
-      border: none;
-      background: #e10600;
-      color: #fff;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    /* Existing styles */
-    body {
-      font-family: 'Orbitron', sans-serif;
-      background: linear-gradient(135deg, #1b1b1b, #111);
-      color: #fff;
-      margin: 20px;
-    }
-    h1, h2 {
-      color: #e10600;
-      text-shadow: 0 0 8px rgba(225, 6, 0, 0.8);
-    }
-    .system {
-      background: #232323;
-      border: 2px solid #e10600;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 12px;
-      box-shadow: 0 6px 15px rgba(0,0,0,0.8);
-      position: relative;
-      overflow: hidden;
-    }
-    .system::before {
-      content: '';
-      position: absolute;
-      top: -50%; left: -50%;
-      width: 200%; height: 200%;
-      background: radial-gradient(circle at center, rgba(225,6,0,0.2), transparent 70%);
-      animation: rotateBg 8s linear infinite;
-    }
-    @keyframes rotateBg {
-      from {transform: rotate(0deg);} to {transform: rotate(360deg);}  
-    }
-    .controls {
-      margin-top: 15px;
-    }
-    .controls button {
-      background: #e10600;
-      color: #fff;
-      border: none;
-      padding: 10px 16px;
-      margin-right: 8px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: transform 0.2s, background 0.2s;
-    }
-    .controls button i { margin-right: 6px; }
-    .controls button:hover {
-      background: #ff3a3a;
-      transform: scale(1.1);
-    }
-    .timer {
-      font-size: 1.4em;
-      font-weight: bold;
-      margin-top: 12px;
-      color: #fff;
-      animation: pulseTimer 2s infinite;
-      text-shadow: 0 0 5px rgba(225,6,0,0.8);
-    }
-    @keyframes pulseTimer {
-      0%,100% { text-shadow: 0 0 5px rgba(225,6,0,0.8); }
-      50% { text-shadow: 0 0 15px rgba(225,6,0,1); }
-    }
-    #history {
-      margin-top: 40px;
-    }
-    #clear-history {
-      background: #e10600;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: transform 0.2s, background 0.2s;
-    }
-    #clear-history:hover {
-      background: #ff3a3a;
-      transform: scale(1.05);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #444;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background: #e10600;
-      color: #fff;
-    }
-    td {
-      background: #2a2a2a;
-    }
-    label {
-      display: inline-block;
-      margin-right: 15px;
-    }
-    input, select {
-      background: #444;
-      color: #fff;
-      border: 1px solid #666;
-      border-radius: 4px;
-      padding: 6px;
-      margin-left: 6px;
-      transition: box-shadow 0.2s;
-    }
-    input:focus, select:focus {
-      outline: none;
-      box-shadow: 0 0 5px rgba(225,6,0,0.8);
-    }
+    #auth-overlay { position: fixed; top:0;,left:0;right:0;bottom:0; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:9999; flex-direction:column; color:#e10600; font-family:'Orbitron'; }
+    #auth-overlay input { font-size:1.2em; padding:10px; border:2px solid #e10600; border-radius:6px; background:#232323; color:#fff; text-align:center; width:150px; margin-top:10px; }
+    #auth-overlay button { margin-top:15px; padding:10px 20px; font-size:1em; border:none; background:#e10600; color:#fff; border-radius:6px; cursor:pointer; font-weight:bold; }
+    body { font-family:'Orbitron',sans-serif; background:linear-gradient(135deg,#1b1b1b,#111); color:#fff; margin:20px; }
+    h1,h2 { color:#e10600; text-shadow:0 0 8px rgba(225,6,0,0.8); }
+    .system { background:#232323; border:2px solid #e10600; padding:20px; margin-bottom:20px; border-radius:12px; box-shadow:0 6px 15px rgba(0,0,0,0.8); position:relative; overflow:hidden; }
+    .system::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(circle at center,rgba(225,6,0,0.2),transparent 70%); animation:rotateBg 8s linear infinite; }
+    @keyframes rotateBg { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+    .controls { margin-top:15px; }
+    .controls button { background:#e10600; color:#fff; border:none; padding:10px 16px; margin-right:8px; border-radius:6px; cursor:pointer; font-weight:bold; transition:transform .2s, background .2s; }
+    .controls button:hover { background:#ff3a3a; transform:scale(1.1); }
+    .timer { font-size:1.4em; font-weight:bold; margin-top:12px; color:#fff; animation:pulseTimer 2s infinite; text-shadow:0 0 5px rgba(225,6,0,0.8); }
+    @keyframes pulseTimer { 0%,100%{text-shadow:0 0 5px rgba(225,6,0,0.8);} 50%{text-shadow:0 0 15px rgba(225,6,0,1);} }
+    #history { margin-top:40px; }
+    #clear-history { background:#e10600; color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:bold; transition:transform .2s, background .2s; }
+    #clear-history:hover { background:#ff3a3a; transform:scale(1.05); }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th,td { border:1px solid #444; padding:10px; text-align:center; }
+    th { background:#e10600; color:#fff; }
+    td { background:#2a2a2a; }
+    label { display:inline-block; margin-right:15px; }
+    input,select { background:#444; color:#fff; border:1px solid #666; border-radius:4px; padding:6px; margin-left:6px; transition:box-shadow .2s; }
+    input:focus,select:focus { outline:none; box-shadow:0 0 5px rgba(225,6,0,0.8); }
   </style>
 </head>
 <body>
@@ -161,7 +39,6 @@
     <input type="password" id="pin-input" maxlength="4" placeholder="••••" />
     <button id="pin-submit">Unlock</button>
   </div>
-
   <h1><i class="fas fa-gamepad"></i> Game Shop Timer</h1>
   <div id="systems-container"></div>
   <audio id="alert-sound" src="https://www.myinstants.com/media/sounds/sony_ericsson_z600.mp3" preload="auto"></audio>
@@ -170,90 +47,59 @@
     <button id="clear-history"><i class="fas fa-trash-alt"></i> Clear History</button>
     <table>
       <thead>
-        <tr>
-          <th>System</th><th>Name</th><th>Players</th><th>Start</th><th>End</th><th>Duration (min)</th><th>Amount (₹)</th>
-        </tr>
+        <tr><th>System</th><th>Name</th><th>Players</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th><th>Amount</th></tr>
       </thead>
       <tbody id="history-body"></tbody>
     </table>
   </div>
-
   <script>
     const AUTH_PIN = '0786';
+    const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYED_GAS_URL/exec';
     const pinInput = document.getElementById('pin-input');
     const pinSubmit = document.getElementById('pin-submit');
     const authOverlay = document.getElementById('auth-overlay');
     pinSubmit.addEventListener('click', authenticate);
-    pinInput.addEventListener('keyup', (e) => { if (e.key === 'Enter') authenticate(); });
+    pinInput.addEventListener('keyup', e => e.key === 'Enter' && authenticate());
     function authenticate() {
       if (pinInput.value === AUTH_PIN) {
         authOverlay.style.display = 'none';
         initApp();
       } else {
-        alert('Incorrect PIN');
-        pinInput.value = '';
+        alert('Incorrect PIN'); pinInput.value = '';
       }
     }
-
-    /* Main application logic moved into initApp */
     function initApp() {
-      const RATES = { single: 80, double: 60 };
-      const TIME_OPTIONS = [
-        { label: '15 minutes', minutes: 15 },
-        { label: '30 minutes', minutes: 30 },
-        { label: '1 hour', minutes: 60 }
-      ];
+      const RATES = { single:80,double:60 };
+      const TIME_OPTIONS = [{label:'15 min',minutes:15},{label:'30 min',minutes:30},{label:'1 hr',minutes:60}];
       const HISTORY_KEY = 'gameShopHistory';
       const alertSound = document.getElementById('alert-sound');
-
       class GameSystem {
-        constructor(id) {
-          this.id = id; this.initUI();
+        constructor(id){this.id=id;this.initUI();}
+        initUI(){
+          const c=document.createElement('div');c.className='system';c.innerHTML=`<h2><i class='fas fa-desktop'></i> System ${this.id}</h2><label>Name:<input id='name-${this.id}'/></label><label>Players:<select id='players-${this.id}'><option value='1'>1</option><option value='2'>2</option></select></label><label>Time:<select id='slot-${this.id}'>${TIME_OPTIONS.map(o=>`<option value='${o.minutes}'>${o.label}</option>`).join('')}</select></label><div class='controls'><button id='start-${this.id}'><i class='fas fa-play'></i> Start</button><button id='add-${this.id}'><i class='fas fa-plus'></i> +30</button><button id='remove-${this.id}'><i class='fas fa-minus'></i> -30</button></div><div id='timer-${this.id}' class='timer'>Not started</div><div id='amount-${this.id}'></div>`;
+          document.getElementById('systems-container').appendChild(c);
+          this.nameI=document.getElementById(`name-${this.id}`);
+          this.pl=document.getElementById(`players-${this.id}`);
+          this.sl=document.getElementById(`slot-${this.id}`);
+          this.td=document.getElementById(`timer-${this.id}`);
+          this.ad=document.getElementById(`amount-${this.id}`);
+          document.getElementById(`start-${this.id}`).addEventListener('click',()=>this.start());
+          document.getElementById(`add-${this.id}`).addEventListener('click',()=>this.mod(30));
+          document.getElementById(`remove-${this.id}`).addEventListener('click',()=>this.mod(-30));
         }
-        initUI() {
-          const container = document.createElement('div'); container.className='system';
-          container.innerHTML = `
-            <h2><i class="fas fa-desktop"></i> System ${this.id}</h2>
-            <label>Name:<input type="text" id="name-${this.id}"/></label>
-            <label>Players:<select id="players-${this.id}"><option value="1">1 Player</option><option value="2">2 Players</option></select></label>
-            <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o=>`<option value="${o.minutes}">${o.label}</option>`).join('')}</select></label>
-            <div class="controls">
-              <button id="start-${this.id}"><i class="fas fa-play"></i> Start</button>
-              <button id="add-${this.id}"><i class="fas fa-plus"></i> 30 min</button>
-              <button id="remove-${this.id}"><i class="fas fa-minus"></i> 30 min</button>
-            </div>
-            <div class="timer" id="timer-${this.id}">Not started</div>
-            <div id="amount-${this.id}"></div>
-          `;
-          document.getElementById('systems-container').appendChild(container);
-          this.nameInput=document.getElementById(`name-${this.id}`);
-          this.playersSelect=document.getElementById(`players-${this.id}`);
-          this.slotSelect=document.getElementById(`slot-${this.id}`);
-          this.startBtn=document.getElementById(`start-${this.id}`);
-          this.addBtn=document.getElementById(`add-${this.id}`);
-          this.removeBtn=document.getElementById(`remove-${this.id}`);
-          this.timerDisplay=document.getElementById(`timer-${this.id}`);
-          this.amountDisplay=document.getElementById(`amount-${this.id}`);
-          this.startBtn.addEventListener('click', ()=>this.startTimer());
-          this.addBtn.addEventListener('click', ()=>this.modifyTime(30));
-          this.removeBtn.addEventListener('click', ()=>this.modifyTime(-30));
-        }
-        startTimer(){
-          const name=this.nameInput.value.trim(), players=parseInt(this.playersSelect.value), slotMin=parseInt(this.slotSelect.value);
-          if(!name){alert('Enter name.');return;}        
-          this.startTime=new Date(); this.endTime=new Date(this.startTime.getTime()+slotMin*60000);
-          this.alertTime=new Date(this.endTime.getTime()-2*60000); this.computeAmount(players,slotMin);
-          this.recordHistory(name,players,this.startTime,this.endTime,slotMin,this.amount);
-          clearInterval(this.interval); this.alerted=false; this.interval=setInterval(()=>this.update(),1000); this.update(); renderHistory();
-        }
-        modifyTime(delta){ if(!this.endTime)return; this.endTime=new Date(this.endTime.getTime()+delta*60000); this.alertTime=new Date(this.endTime.getTime()-2*60000); }
-        computeAmount(players,mins){ const rate=players===1?RATES.single:RATES.double; this.amount=+(rate/60*mins*players).toFixed(2); this.amountDisplay.textContent=`Amount: ₹${this.amount}`; }
-        update(){ const now=new Date(); if(now>=this.alertTime&&now<this.endTime&&!this.alerted){ alertSound.play(); alert(`System ${this.id}: 2 minutes left!`); this.alerted=true;} if(now>=this.endTime){ this.timerDisplay.textContent='Session ended'; clearInterval(this.interval); return;} const diff=this.endTime-now, m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000); this.timerDisplay.textContent=`${m}m ${s}s remaining`; }
-        recordHistory(name,players,start,end,dur,amt){ const rec={system:this.id,name,players,start:start.toLocaleString(),end:end.toLocaleString(),duration:dur,amount:amt}; const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); h.push(rec); localStorage.setItem(HISTORY_KEY,JSON.stringify(h)); }
+        start(){if(!this.nameI.value.trim()){alert('Name?');return;}this.startT=new Date();this.endT=new Date(this.startT.getTime()+parseInt(this.sl.value)*60000);this.alertT=new Date(this.endT.getTime()-2*60000);this.calc();this.log();clearInterval(this.iv);this.alerted=false;this.iv=setInterval(()=>this.up(),1000);this.up();render();}
+        mod(d){if(!this.endT)return;this.endT=new Date(this.endT.getTime()+d*60000);this.alertT=new Date(this.endT.getTime()-2*60000);}
+        calc(){const p=parseInt(this.pl.value);const r=p===1?RATES.single:RATES.double;this.amt=+(r/60*parseInt(this.sl.value)*p).toFixed(2);this.ad.textContent=`Amt:₹${this.amt}`;}
+        up(){const n=new Date();if(n>=this.alertT&&n<this.endT&&!this.alerted){alertSound.play();alert(`Sys${this.id}:2min left`);this.alerted=true;}if(n>=this.endT){this.td.textContent='Ended';clearInterval(this.iv);return;}const diff=this.endT-n;const m=Math.floor(diff/60000),s=Math.floor((diff%60000)/1000);this.td.textContent=`${m}m${s}s`;}
+        async log(){const rec={system:this.id,name:this.nameI.value,players:this.pl.value,date:new Date().toLocaleDateString(),start:this.startT.toLocaleTimeString(),end:this.endT.toLocaleTimeString(),duration:parseInt(this.sl.value),amount:this.amt};
+          // localStorage
+          const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');h.push(rec);localStorage.setItem(HISTORY_KEY,JSON.stringify(h));
+          // send to Google Sheets via Apps Script
+          try{await fetch(SHEET_WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)});}catch(e){console.error('Sheet log failed',e);} }
       }
-      function renderHistory(){ const b=document.getElementById('history-body'); b.innerHTML=''; const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); h.forEach(r=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`; b.appendChild(tr); }); }
-      document.getElementById('clear-history').addEventListener('click',()=>{localStorage.removeItem(HISTORY_KEY);renderHistory();});
-      for(let i=1;i<=3;i++)new GameSystem(i); renderHistory();
+      function render(){const b=document.getElementById('history-body');b.innerHTML='';JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;b.appendChild(tr);});}
+      document.getElementById('clear-history').addEventListener('click',()=>{localStorage.removeItem(HISTORY_KEY);render();});
+      for(let i=1;i<=3;i++)new GameSystem(i);render();
     }
   </script>
 </body>
