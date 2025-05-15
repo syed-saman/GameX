@@ -15,13 +15,13 @@
     .controls button:hover { background: #ff3a3a; transform: scale(1.1); }
     .timer { font-size: 1.4em; font-weight: bold; margin-top: 12px; animation: pulseTimer 2s infinite; text-shadow: 0 0 5px rgba(225,6,0,0.8); }
     @keyframes pulseTimer { 0%,100% { text-shadow: 0 0 5px rgba(225,6,0,0.8); } 50% { text-shadow: 0 0 15px rgba(225,6,0,1); } }
+    #history { margin-top: 40px; font-family: Arial, sans-serif; font-size: 0.9em; }
+    #clear-history { background: #e10600; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: transform .2s, background .2s; margin-bottom:10px; }
+    #clear-history:hover { background: #ff3a3a; transform: scale(1.05); }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     th, td { border: 1px solid #444; padding: 10px; text-align: center; }
     th { background: #e10600; color: #fff; }
     td { background: #2a2a2a; }
-    label { display: inline-block; margin-right: 15px; }
-    input, select { background: #444; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 6px; margin-left: 6px; transition: box-shadow .2s; position: relative; z-index: 1; }
-    input:focus, select:focus { outline: none; box-shadow: 0 0 5px rgba(225,6,0,0.8); }
   </style>
 </head>
 <body>
@@ -29,8 +29,9 @@
   <div id="systems-container"></div>
 
   <!-- Sounds -->
-  <audio id="alert-sound" src="https://www.myinstants.com/media/sounds/sony_ericsson_z600.mp3" preload="auto"></audio>
-  <audio id="end-sound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto"></audio>
+  <audio id="start-sound" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+  <audio id="warning-sound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
+  <audio id="end-sound" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
 
   <div id="history">
     <h2><i class="fas fa-history"></i> Session History</h2>
@@ -42,25 +43,25 @@
   </div>
 
   <script>
+    const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzNYc04i7KnU-nYMsJyWG-zJ2C-FiZIB8bO1uNZXzXIKpmNYx2q0quCNaKqZZlwNQw/exec';
     const RATES = { single: 80, double: 60 };
-    const TIME_OPTIONS = [ { label: '30 minutes', minutes: 30 }, { label: '1 hour', minutes: 60 }, { label: '5 minutes', minutes: 5 } ];
+    const TIME_OPTIONS = [ { label: '15 minutes', minutes: 15 }, { label: '30 minutes', minutes: 30 }, { label: '1 hour', minutes: 60 } ];
     const HISTORY_KEY = 'gameShopHistory';
-    const alertSound = document.getElementById('alert-sound');
+    const startSound = document.getElementById('start-sound');
+    const warningSound = document.getElementById('warning-sound');
     const endSound = document.getElementById('end-sound');
 
     class GameSystem {
       constructor(id) {
-        this.id = id;
-        this.initUI();
+        this.id = id; this.initUI();
       }
-
       initUI() {
-        const container = document.createElement('div'); container.className = 'system';
-        container.innerHTML = `
+        const c = document.createElement('div'); c.className = 'system';
+        c.innerHTML = `
           <h2><i class="fas fa-desktop"></i> System ${this.id}</h2>
           <label>Name:<input id="name-${this.id}"/></label>
           <label>Players:<select id="players-${this.id}"><option value="1">1</option><option value="2">2</option></select></label>
-          <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o => `<option value="${o.minutes}">${o.label}</option>`).join('')}</select></label>
+          <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o=>`<option value="${o.minutes}">${o.label}</option>`).join('')}</select></label>
           <div class="controls">
             <button id="start-${this.id}"><i class="fas fa-play"></i> Start</button>
             <button id="end-${this.id}"><i class="fas fa-stop-circle"></i> End</button>
@@ -70,128 +71,60 @@
           <div id="timer-${this.id}" class="timer">Not started</div>
           <div id="amount-${this.id}"></div>
         `;
-        document.getElementById('systems-container').appendChild(container);
-
-        this.nameInput = document.getElementById(`name-${this.id}`);
-        this.playersSelect = document.getElementById(`players-${this.id}`);
-        this.slotSelect = document.getElementById(`slot-${this.id}`);
-        this.timerDisplay = document.getElementById(`timer-${this.id}`);
-        this.amountDisplay = document.getElementById(`amount-${this.id}`);
-        document.getElementById(`start-${this.id}`).addEventListener('click', () => this.startTimer());
-        document.getElementById(`end-${this.id}`).addEventListener('click', () => this.endSession());
-        document.getElementById(`add-${this.id}`).addEventListener('click', () => this.modifyTime(30));
-        document.getElementById(`remove-${this.id}`).addEventListener('click', () => this.modifyTime(-30));
+        document.getElementById('systems-container').appendChild(c);
+        this.nameI = document.getElementById(`name-${this.id}`);
+        this.pl = document.getElementById(`players-${this.id}`);
+        this.sl = document.getElementById(`slot-${this.id}`);
+        this.td = document.getElementById(`timer-${this.id}`);
+        this.ad = document.getElementById(`amount-${this.id}`);
+        document.getElementById(`start-${this.id}`).onclick = () => this.startTimer();
+        document.getElementById(`end-${this.id}`).onclick = () => this.endSession();
+        document.getElementById(`add-${this.id}`).onclick = () => this.modifyTime(30);
+        document.getElementById(`remove-${this.id}`).onclick = () => this.modifyTime(-30);
       }
-
       startTimer() {
-        if (!this.nameInput.value.trim()) { alert('Please enter a name.'); return; }
-        const minutes = parseInt(this.slotSelect.value);
-        const players = parseInt(this.playersSelect.value);
+        if(!this.nameI.value.trim()){alert('Enter name');return;}
+        const mins = parseInt(this.sl.value), players = parseInt(this.pl.value);
         this.startTime = new Date();
-        this.endTime = new Date(this.startTime.getTime() + minutes * 60000);
-        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
-        this.computeAmount(players, minutes);
-        clearInterval(this.interval);
-        this.alerted = false;
-        this.interval = setInterval(() => this.update(), 1000);
-        this.update();
+        this.endTime = new Date(this.startTime.getTime() + mins*60000);
+        this.alertTime = new Date(this.endTime.getTime() - 2*60000);
+        this.computeAmount(players, mins);
+        clearInterval(this.iv); this.alerted=false;
+        startSound.play();
+        this.iv = setInterval(()=>this.update(),1000); this.update();
       }
-
-      endSession() {
-        if (!this.startTime) return;
-        clearInterval(this.interval);
-        const now = new Date();
-        const elapsed = (now - this.startTime) / 60000; // in minutes
-        let charge = 0;
-        if (elapsed > 3) {
-          // Charge minimum 30 minutes
-          const players = parseInt(this.playersSelect.value);
-          const rate = players === 1 ? RATES.single : RATES.double;
-          charge = +(rate / 60 * 30 * players).toFixed(2);
-        }
-        this.timerDisplay.textContent = 'Session ended';
-        endSound.play();
-        this.recordHistory(this.nameInput.value.trim(), parseInt(this.playersSelect.value), this.startTime, now, elapsed, charge);
-        renderHistory();
-      }
-
-      modifyTime(deltaMin) {
-        if (!this.endTime) return;
-        this.endTime = new Date(this.endTime.getTime() + deltaMin * 60000);
-        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
-      }
-
-      computeAmount(players, minutes) {
-        const rate = players === 1 ? RATES.single : RATES.double;
-        this.amount = +(rate / 60 * minutes * players).toFixed(2);
-        this.amountDisplay.textContent = `Amount: ₹${this.amount}`;
-      }
-
       update() {
         const now = new Date();
-        if (now >= this.alertTime && now < this.endTime && !this.alerted) {
-          alertSound.play();
-          alert(`System ${this.id}: 2 minutes left!`);
-          this.alerted = true;
-        }
-        if (now >= this.endTime) {
-          clearInterval(this.interval);
-          this.timerDisplay.textContent = 'Session ended';
-          endSound.play();
-          this.recordHistory(this.nameInput.value.trim(), parseInt(this.playersSelect.value), this.startTime, this.endTime, (this.endTime - this.startTime) / 60000, this.amount);
-          renderHistory();
-          return;
-        }
-        const diff = this.endTime - now;
-        const m = Math.floor(diff / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        this.timerDisplay.textContent = `${m}m ${s}s remaining`;
+        if(now>=this.alertTime && now<this.endTime && !this.alerted){ warningSound.play(); alertSound.play(); this.alerted=true; }
+        if(now>=this.endTime){ clearInterval(this.iv); this.td.textContent='Session ended'; endSound.play(); this.saveRecord(this.endTime); return; }
+        const diff=this.endTime-now, m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000);
+        this.td.textContent=`${m}m ${s}s remaining`;
       }
-
-      recordHistory(name, players, start, end, duration, amount) {
-        const rec = {
-          system: this.id,
-          name,
-          players,
-          date: start.toLocaleDateString(),
-          start: start.toLocaleTimeString(),
-          end: end.toLocaleTimeString(),
-          duration: Math.ceil(duration),
-          amount
-        };
-        const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        hist.push(rec);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
-      }
+      endSession(){ if(!this.startTime)return; clearInterval(this.iv); const now=new Date(); this.td.textContent='Session ended'; endSound.play(); this.saveRecord(now); }
+      modifyTime(d){ if(!this.endTime)return; this.endTime=new Date(this.endTime.getTime()+d*60000); this.alertTime=new Date(this.endTime.getTime()-2*60000); }
+      computeAmount(p,mins){ this.currentAmt=+( (p===1?RATES.single:RATES.double)/60*mins*p ).toFixed(2); this.ad.textContent=`Amt:₹${this.currentAmt}`; }
+      async saveRecord(endTime){ const elapsed=(endTime-this.startTime)/60000; let amt=0;
+        if(elapsed>3){ amt = +( ( (parseInt(this.pl.value)===1?RATES.single:RATES.double)/60*30*parseInt(this.pl.value) )).toFixed(2); }
+        const rec={ system:this.id, name:this.nameI.value, players:this.pl.value, date:this.startTime.toLocaleDateString(), start:this.startTime.toLocaleTimeString(), end:endTime.toLocaleTimeString(), duration:Math.ceil(elapsed), amount:amt };
+        // localStorage
+        const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); h.push(rec); localStorage.setItem(HISTORY_KEY,JSON.stringify(h));
+        // Google Sheets
+        try {
+        const queryParams = new URLSearchParams(rec).toString();
+        const res = await fetch(`${SHEET_WEBHOOK_URL}?${queryParams}`);
+        if (!res.ok) console.error('Sheet error', res.status, await res.text());
+        }  catch(e){console.error('Fetch error',e);} renderHistory(); }
     }
-
-    function renderHistory() {
-      const body = document.getElementById('history-body');
-      body.innerHTML = '';
-      const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      hist.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.system}</td>
-          <td>${r.name}</td>
-          <td>${r.players}</td>
-          <td>${r.date}</td>
-          <td>${r.start}</td>
-          <td>${r.end}</td>
-          <td>${r.duration}</td>
-          <td>₹${r.amount}</td>
-        `;
-        body.appendChild(tr);
-      });
-    }
-
-    document.getElementById('clear-history').addEventListener('click', () => {
-      localStorage.removeItem(HISTORY_KEY);
-      renderHistory();
-    });
-
-    // Initialize three systems
-    for (let i = 1; i <= 3; i++) new GameSystem(i);
+    function renderHistory(){ const b=document.getElementById('history-body'); b.innerHTML='';
+      JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').forEach(r=>{
+        const tr=document.createElement('tr');
+        // amount color coding
+        let color='#fff',shadow=''; if(r.amount===0){color='red';} else if(r.amount<=40){color='green';} else if(r.amount<=80){color='blue';} else {color='green'; shadow='text-shadow:0 0 5px gold';}
+        tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td style="color:${color};${shadow}">₹${r.amount}</td>`;
+        b.appendChild(tr);
+      }); }
+    document.getElementById('clear-history').onclick=()=>{ localStorage.removeItem(HISTORY_KEY); renderHistory(); };
+    for(let i=1;i<=3;i++) new GameSystem(i);
     renderHistory();
   </script>
 </body>
