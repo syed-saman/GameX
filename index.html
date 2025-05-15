@@ -4,24 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Game Shop Timer</title>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pap6Y8yM6Zdh6+Uz9Q6VwH8zY3H0rZpF+QZCmklJ1eG5G8vJ3OeK9bp1f+Ujw5lRBB8+0uG5Zp2dEvjBzp9g9g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     body { font-family: 'Orbitron', sans-serif; background: linear-gradient(135deg, #1b1b1b, #111); color: #fff; margin: 20px; }
     h1, h2 { color: #e10600; text-shadow: 0 0 8px rgba(225,6,0,0.8); }
-    .system { background: #232323; border: 2px solid #e10600; padding: 20px; margin-bottom: 20px; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 6px 15px rgba(0,0,0,0.8); }
+    .system { background: #232323; border: 2px solid #e10600; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0,0,0,0.8); }
     .controls { margin-top: 15px; }
-    .controls button { background: #e10600; color: #fff; border: none; padding: 10px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: transform .2s, background .2s; }
+    .controls button { background: #e10600; color: #fff; border: none; padding: 10px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: .2s; }
     .controls button:hover { background: #ff3a3a; transform: scale(1.1); }
-    .timer { font-size: 1.4em; font-weight: bold; margin-top: 12px; animation: pulseTimer 2s infinite; text-shadow: 0 0 5px rgba(225,6,0,0.8); }
+    .timer { font-size: 1.4em; font-weight: bold; margin-top: 12px; animation: pulseTimer 2s infinite; }
     @keyframes pulseTimer { 0%,100% { text-shadow: 0 0 5px rgba(225,6,0,0.8); } 50% { text-shadow: 0 0 15px rgba(225,6,0,1); } }
     #history { margin-top: 40px; font-family: Arial, sans-serif; font-size: 0.9em; }
-    #clear-history { background: #e10600; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: transform .2s, background .2s; margin-bottom:10px; }
-    #clear-history:hover { background: #ff3a3a; transform: scale(1.05); }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    #clear-history { background: #e10600; color: #fff; padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
+    #clear-history:hover { background: #ff3a3a; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #444; padding: 10px; text-align: center; }
     th { background: #e10600; color: #fff; }
-    td { background: #2a2a2a; }
   </style>
 </head>
 <body>
@@ -43,17 +45,29 @@
   </div>
 
   <script>
-    const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzNYc04i7KnU-nYMsJyWG-zJ2C-FiZIB8bO1uNZXzXIKpmNYx2q0quCNaKqZZlwNQw/exec';
+    // Firebase configuration (replace with your own free-tier project keys)
+    const firebaseConfig = {
+  apiKey: "AIzaSyCtUaG1qBPc2HNerZlooDzd5ZuVfgbJ3us",
+  authDomain: "gamex-badb2.firebaseapp.com",
+  databaseURL: "https://gamex-badb2-default-rtdb.firebaseio.com",
+  projectId: "gamex-badb2",
+  storageBucket: "gamex-badb2.firebasestorage.app",
+  messagingSenderId: "122763084228",
+  appId: "1:122763084228:web:9908f9a8b0092199fa6491"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     const RATES = { single: 80, double: 60 };
     const TIME_OPTIONS = [ { label: '30 minutes', minutes: 30 }, { label: '5 minutes', minutes: 5 }, { label: '1 hour', minutes: 60 } ];
-    const HISTORY_KEY = 'gameShopHistory';
     const startSound = document.getElementById('start-sound');
     const warningSound = document.getElementById('warning-sound');
     const endSound = document.getElementById('end-sound');
 
     class GameSystem {
       constructor(id) {
-        this.id = id; this.initUI();
+        this.id = id;
+        this.initUI();
       }
       initUI() {
         const c = document.createElement('div'); c.className = 'system';
@@ -83,48 +97,81 @@
         document.getElementById(`remove-${this.id}`).onclick = () => this.modifyTime(-30);
       }
       startTimer() {
-        if(!this.nameI.value.trim()){alert('Enter name');return;}
+        if (!this.nameI.value.trim()) { alert('Enter name'); return; }
         const mins = parseInt(this.sl.value), players = parseInt(this.pl.value);
         this.startTime = new Date();
-        this.endTime = new Date(this.startTime.getTime() + mins*60000);
-        this.alertTime = new Date(this.endTime.getTime() - 2*60000);
+        this.endTime = new Date(this.startTime.getTime() + mins * 60000);
+        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
         this.computeAmount(players, mins);
-        clearInterval(this.iv); this.alerted=false;
+        clearInterval(this.iv); this.alerted = false;
         startSound.play();
-        this.iv = setInterval(()=>this.update(),1000); this.update();
+        this.iv = setInterval(() => this.update(), 1000); this.update();
       }
       update() {
         const now = new Date();
-        if(now>=this.alertTime && now<this.endTime && !this.alerted){ warningSound.play(); alertSound.play(); this.alerted=true; }
-        if(now>=this.endTime){ clearInterval(this.iv); this.td.textContent='Session ended'; endSound.play(); this.saveRecord(this.endTime); return; }
-        const diff=this.endTime-now, m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000);
-        this.td.textContent=`${m}m ${s}s remaining`;
+        if (now >= this.alertTime && now < this.endTime && !this.alerted) { warningSound.play(); this.alerted = true; }
+        if (now >= this.endTime) { clearInterval(this.iv); this.td.textContent = 'Session ended'; endSound.play(); this.saveRecord(this.endTime); return; }
+        const diff = this.endTime - now, m = Math.floor(diff / 60000), s = Math.floor((diff % 60000) / 1000);
+        this.td.textContent = `${m}m ${s}s remaining`;
       }
-      endSession(){ if(!this.startTime)return; clearInterval(this.iv); const now=new Date(); this.td.textContent='Session ended'; endSound.play(); this.saveRecord(now); }
-      modifyTime(d){ if(!this.endTime)return; this.endTime=new Date(this.endTime.getTime()+d*60000); this.alertTime=new Date(this.endTime.getTime()-2*60000); }
-      computeAmount(p,mins){ this.currentAmt=+( (p===1?RATES.single:RATES.double)/60*mins*p ).toFixed(2); this.ad.textContent=`Amt:₹${this.currentAmt}`; }
-      async saveRecord(endTime){ const elapsed=(endTime-this.startTime)/60000; let amt=0;
-        if(elapsed>3){ amt = +( ( (parseInt(this.pl.value)===1?RATES.single:RATES.double)/60*30*parseInt(this.pl.value) )).toFixed(2); }
-        const rec={ system:this.id, name:this.nameI.value, players:this.pl.value, date:this.startTime.toLocaleDateString(), start:this.startTime.toLocaleTimeString(), end:endTime.toLocaleTimeString(), duration:Math.ceil(elapsed), amount:amt };
-        // localStorage
-        const h=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); h.push(rec); localStorage.setItem(HISTORY_KEY,JSON.stringify(h));
-        // Google Sheets
-        try {
-        const queryParams = new URLSearchParams(rec).toString();
-        const res = await fetch(`${SHEET_WEBHOOK_URL}?${queryParams}`);
-        if (!res.ok) console.error('Sheet error', res.status, await res.text());
-        }  catch(e){console.error('Fetch error',e);} renderHistory(); }
+      endSession() {
+        if (!this.startTime) return;
+        clearInterval(this.iv);
+        const now = new Date();
+        this.td.textContent = 'Session ended';
+        endSound.play();
+        this.saveRecord(now);
+      }
+      modifyTime(d) {
+        if (!this.endTime) return;
+        this.endTime = new Date(this.endTime.getTime() + d * 60000);
+        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
+      }
+      computeAmount(p, mins) {
+        this.currentAmt = +(((p === 1 ? RATES.single : RATES.double) / 60) * mins * p).toFixed(2);
+        this.ad.textContent = `Amt:₹${this.currentAmt}`;
+      }
+      saveRecord(endTime) {
+        const elapsed = (endTime - this.startTime) / 60000;
+        let amt = 0;
+        if (elapsed > 3) {
+          amt = +(((parseInt(this.pl.value) === 1 ? RATES.single : RATES.double) / 60) * 30 * parseInt(this.pl.value)).toFixed(2);
+        }
+        const rec = {
+          system: this.id,
+          name: this.nameI.value,
+          players: this.pl.value,
+          date: this.startTime.toLocaleDateString(),
+          start: this.startTime.toLocaleTimeString(),
+          end: endTime.toLocaleTimeString(),
+          duration: Math.ceil(elapsed),
+          amount: amt
+        };
+        // Write to Firebase Realtime DB
+        const newRef = firebase.database().ref('sessions').push();
+        newRef.set(rec);
+        renderHistory();
+      }
     }
-    function renderHistory(){ const b=document.getElementById('history-body'); b.innerHTML='';
-      JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]').forEach(r=>{
-        const tr=document.createElement('tr');
-        // amount color coding
-        let color='#fff',shadow=''; if(r.amount===0){color='red';} else if(r.amount<=40){color='green';} else if(r.amount<=80){color='blue';} else {color='green'; shadow='text-shadow:0 0 5px gold';}
-        tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td style="color:${color};${shadow}">₹${r.amount}</td>`;
-        b.appendChild(tr);
-      }); }
-    document.getElementById('clear-history').onclick=()=>{ localStorage.removeItem(HISTORY_KEY); renderHistory(); };
-    for(let i=1;i<=3;i++) new GameSystem(i);
+
+    function renderHistory() {
+      const body = document.getElementById('history-body'); body.innerHTML = '';
+      firebase.database().ref('sessions').once('value', snapshot => {
+        snapshot.forEach(child => {
+          const r = child.val();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;
+          body.appendChild(tr);
+        });
+      });
+    }
+
+    document.getElementById('clear-history').onclick = () => {
+      firebase.database().ref('sessions').remove();
+      document.getElementById('history-body').innerHTML = '';
+    };
+
+    for (let i = 1; i <= 3; i++) new GameSystem(i);
     renderHistory();
   </script>
 </body>
