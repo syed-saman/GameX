@@ -22,8 +22,8 @@
     table { width:100%; border-collapse:collapse; }
     th, td { border:1px solid #444; padding:8px; text-align:center; }
     th { background:#e10600; }
-    td.payment input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
-    td.payment input[type=checkbox][disabled] { cursor:not-allowed; }
+    td.payment input { width:16px; height:16px; cursor:pointer; }
+    td.payment input:disabled { cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -38,6 +38,11 @@
   <h1>Game Shop Timer</h1>
   <div id="systems-container"></div>
 
+  <!-- Audio Elements -->
+  <audio id="start-sound" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+  <audio id="warning-sound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
+  <audio id="end-sound" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
+
   <div id="history">
     <h2>Session History</h2>
     <button id="clear-history">Clear History</button>
@@ -50,69 +55,78 @@
   <script>
     // Firebase config
     const firebaseConfig = {
-
-  apiKey: "AIzaSyCtUaG1qBPc2HNerZlooDzd5ZuVfgbJ3us",
-
-  authDomain: "gamex-badb2.firebaseapp.com",
-
-  databaseURL: "https://gamex-badb2-default-rtdb.firebaseio.com",
-
-  projectId: "gamex-badb2",
-
-  storageBucket: "gamex-badb2.firebasestorage.app",
-
-  messagingSenderId: "122763084228",
-
-  appId: "1:122763084228:web:9908f9a8b0092199fa6491"
-
-};
+      apiKey: "AIzaSyCtUaG1qBPc2HNerZlooDzd5ZuVfgbJ3us",
+      authDomain: "gamex-badb2.firebaseapp.com",
+      databaseURL: "https://gamex-badb2-default-rtdb.firebaseio.com",
+      projectId: "gamex-badb2",
+      storageBucket: "gamex-badb2.firebasestorage.app",
+      messagingSenderId: "122763084228",
+      appId: "1:122763084228:web:9908f9a8b0092199fa6491"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Users and pins
+    const RATES = { single: 80, double: 60 };
+    const startSound = document.getElementById('start-sound');
+    const warningSound = document.getElementById('warning-sound');
+    const endSound = document.getElementById('end-sound');
+
     const USERS = { 'Tabish':'0786', 'Saman':'1234' };
     const CLEAR_PIN = '2025';
-
     let currentUser = null;
 
-    // Login
+    // Login persistence (20 min)
+    const lastLogin = parseInt(localStorage.getItem('lastLogin') || '0');
+    if (Date.now() - lastLogin < 20*60*1000 && localStorage.getItem('currentUser')) {
+      currentUser = localStorage.getItem('currentUser');
+      document.getElementById('login-overlay').style.display = 'none';
+      initApp();
+    }
+
     document.getElementById('login-btn').onclick = () => {
       const u = document.getElementById('username-input').value;
       const p = document.getElementById('pin-input').value;
       if (USERS[u] === p) {
         currentUser = u;
+        localStorage.setItem('lastLogin', Date.now());
+        localStorage.setItem('currentUser', u);
         document.getElementById('login-overlay').style.display = 'none';
+        initApp();
       } else document.getElementById('login-error').innerText = 'Invalid credentials';
     };
 
-    // Clear history
     document.getElementById('clear-history').onclick = async () => {
       const pin = prompt('Enter clearing PIN:');
       if (pin === CLEAR_PIN) {
-        await db.ref('sessions').remove();
-        renderHistory();
+        await db.ref('sessions').remove(); renderHistory();
       } else alert('Wrong PIN');
     };
 
-    // Utility: 12h format
-    function formatTime(date) {
-      const opts = { hour:'numeric', minute:'numeric', hour12:true };
-      return date.toLocaleTimeString('en-US', opts);
+    function formatTime(d) {
+      return new Date(d).toLocaleTimeString('en-US',{hour:'numeric',minute:'numeric',hour12:true});
+    }
+
+    function initApp() {
+      // Setup systems
+      for (let i=1; i<=3; i++) new GameSystem(i);
+      renderHistory();
     }
 
     class GameSystem {
       constructor(id) {
         this.id = id;
         this.ref = db.ref('activeSessions/' + id);
+        this.alerted = false;
+        this.sessionEnded = false;
         this.initUI();
         this.listen();
       }
       initUI() {
         const c = document.createElement('div'); c.className='system';
         c.innerHTML = `<h3>System ${this.id}</h3>
-          <label>Name:<input id="name-${this.id}" /></label>
+          <label>Name:<input id="name-${this.id}"/></label>
           <label>Players:<select id="players-${this.id}"><option>1</option><option>2</option></select></label>
-          <label>Time:<select id="slot-${this.id}"><option>3</option><option>30</option><option>60</option></select>min</label>
+          <label>Time:<select id="slot-${this.id}"><option>15</option><option>30</option><option>60</option></select>min</label>
           <div class='controls'>
             <button id='start-${this.id}'>Start</button>
             <button id='end-${this.id}' disabled>End</button>
@@ -126,15 +140,15 @@
         this.pl = document.getElementById(`players-${this.id}`);
         this.sl = document.getElementById(`slot-${this.id}`);
         this.startBtn = document.getElementById(`start-${this.id}`);
-        this.endBtn   = document.getElementById(`end-${this.id}`);
-        this.addBtn   = document.getElementById(`add-${this.id}`);
-        this.remBtn   = document.getElementById(`remove-${this.id}`);
+        this.endBtn = document.getElementById(`end-${this.id}`);
+        this.addBtn = document.getElementById(`add-${this.id}`);
+        this.remBtn = document.getElementById(`remove-${this.id}`);
         this.td = document.getElementById(`timer-${this.id}`);
         this.ad = document.getElementById(`amount-${this.id}`);
         this.startBtn.onclick = () => this.start();
-        this.endBtn.onclick   = () => this.end();
-        this.addBtn.onclick   = () => this.adjust(30);
-        this.remBtn.onclick   = () => this.adjust(-30);
+        this.endBtn.onclick = () => this.end();
+        this.addBtn.onclick = () => this.adjust(30);
+        this.remBtn.onclick = () => this.adjust(-30);
       }
       listen() {
         this.ref.on('value', snap => {
@@ -145,50 +159,52 @@
       }
       resume(v) {
         this.nameI.value = v.name;
-        this.pl.value   = v.players;
-        this.startTime  = new Date(v.start);
-        this.endTime    = new Date(v.end);
+        this.pl.value = v.players;
+        this.startTime = new Date(v.start);
+        this.endTime = new Date(v.end);
+        this.alerted = false;
+        this.sessionEnded = false;
         this.updateAmount();
         this.startBtn.disabled = true;
-        this.endBtn.disabled   = false;
-        this.addBtn.disabled   = false;
-        this.remBtn.disabled   = false;
+        this.endBtn.disabled = false;
+        this.addBtn.disabled = false;
+        this.remBtn.disabled = false;
         clearInterval(this.iv);
         this.iv = setInterval(() => this.tick(), 1000);
         this.tick();
       }
       reset() {
+        clearInterval(this.iv);
         this.td.textContent = 'Not started';
         this.ad.textContent = '';
         this.startBtn.disabled = false;
-        this.endBtn.disabled   = true;
-        this.addBtn.disabled   = true;
-        this.remBtn.disabled   = true;
-        clearInterval(this.iv);
+        this.endBtn.disabled = true;
+        this.addBtn.disabled = true;
+        this.remBtn.disabled = true;
       }
       start() {
-        if(!this.nameI.value) { alert('Enter name'); return; }
-        if(!confirm('Start session?')) return;
+        if (!this.nameI.value) { alert('Enter name'); return; }
+        if (!confirm('Start session?')) return;
         const now = new Date();
         const slot = parseInt(this.sl.value);
         this.endTime = new Date(now.getTime() + slot*60000);
-        this.ref.set({
-          name: this.nameI.value,
-          players: this.pl.value,
-          start: now.toISOString(),
-          end:   this.endTime.toISOString()
-        });
+        this.ref.set({ name: this.nameI.value, players: this.pl.value, start: now.toISOString(), end: this.endTime.toISOString() });
+        startSound.play();
       }
       tick() {
+        if (this.sessionEnded) return;
         const now = new Date();
-        if(now >= new Date(this.endTime.getTime()-2*60000) && !this.alerted) { warningSound.play(); this.alerted=true; }
-        if(now >= this.endTime) { this.end(); return; }
+        if (now >= new Date(this.endTime.getTime() - 2*60000) && !this.alerted) { warningSound.play(); this.alerted = true; }
+        if (now >= this.endTime) { this.end(); return; }
         const diff = this.endTime - now;
         const m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
         this.td.textContent = `${m}m ${s}s remaining`;
       }
       end() {
-        if(!confirm('End session?')) return;
+        if (this.sessionEnded) return;
+        if (!confirm('End session?')) return;
+        this.sessionEnded = true;
+        clearInterval(this.iv);
         const now = new Date();
         const rec = {
           system: this.id,
@@ -196,25 +212,26 @@
           players: this.pl.value,
           date: now.toLocaleDateString(),
           start: formatTime(this.startTime),
-          end:   formatTime(now),
-          duration: Math.ceil((now-this.startTime)/60000),
+          end: formatTime(now),
+          duration: Math.ceil((now - this.startTime)/60000),
           amount: this.computeCharge(now),
-          cash:false, online:false,
+          cash: false, online: false,
           user: currentUser
         };
         db.ref('sessions').push(rec);
         this.ref.remove();
+        endSound.play();
         renderHistory();
       }
       adjust(mins) {
-        if(!confirm(`Adjust by ${mins} min?`)) return;
-        this.endTime = new Date(this.endTime.getTime()+mins*60000);
+        if (!confirm(`Adjust by ${mins} min?`)) return;
+        this.endTime = new Date(this.endTime.getTime() + mins*60000);
         this.ref.child('end').set(this.endTime.toISOString());
         this.updateAmount();
       }
       computeCharge(now) {
         const elapsed = (now - this.startTime)/60000;
-        if(elapsed <=3) return 0;
+        if (elapsed <= 3) return 0;
         const blocks = Math.ceil(elapsed/30);
         return ((blocks*30)*(this.pl.value==1?RATES.single:RATES.double)/60).toFixed(2);
       }
@@ -225,40 +242,29 @@
     }
 
     function renderHistory() {
-      const body = document.getElementById('history-body'); body.innerHTML='';
-      db.ref('sessions').once('value',snap=>{
-        snap.forEach(child=>{
+      const body = document.getElementById('history-body'); body.innerHTML = '';
+      db.ref('sessions').once('value', snap => {
+        snap.forEach(child => {
           const r = child.val();
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${r.system}</td>
-            <td>${r.name}</td>
-            <td>${r.players}</td>
-            <td>${r.date}</td>
-            <td>${r.start}</td>
-            <td>${r.end}</td>
-            <td>${r.duration}</td>
-            <td>₹${r.amount}</td>
+            <td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td>
+            <td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>
             <td class="payment"><input type="checkbox" data-key="${child.key}" data-type="cash" ${r.cash?'checked disabled':''} /></td>
             <td class="payment"><input type="checkbox" data-key="${child.key}" data-type="online" ${r.online?'checked disabled':''} /></td>
           `;
           body.appendChild(tr);
         });
-        // bind checkboxes
-        document.querySelectorAll('td.payment input').forEach(cb=>{
+        document.querySelectorAll('td.payment input').forEach(cb => {
           cb.onchange = () => {
             const key = cb.dataset.key;
             const type = cb.dataset.type;
             db.ref(`sessions/${key}/${type}`).set(cb.checked);
-            setTimeout(() => cb.disabled=true, 30000);
+            setTimeout(() => cb.disabled = true, 30000);
           };
         });
       });
     }
-
-    // Init three systems
-    for(let i=1;i<=3;i++) new GameSystem(i);
-    renderHistory();
   </script>
 </body>
 </html>
