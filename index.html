@@ -10,33 +10,39 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    body { font-family: 'Orbitron', sans-serif; background: linear-gradient(135deg, #1b1b1b, #111); color: #fff; margin: 20px; }
-    h1, h2 { color: #e10600; }
-    .system { background: #232323; border: 2px solid #e10600; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0,0,0,0.8); }
-    .controls { margin-top: 15px; }
-    .controls button { background: #e10600; color: #fff; border: none; padding: 10px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .controls button:disabled { background: #555; cursor: not-allowed; }
-    .timer { font-size: 1.4em; margin-top: 12px; }
-    #history { margin-top: 40px; font-family: Arial, sans-serif; font-size: 0.9em; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #444; padding: 10px; text-align: center; }
-    th { background: #e10600; color: #fff; }
+    body { font-family: 'Orbitron', sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; }
+    .overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 1000; }
+    .overlay input { padding: 10px; margin: 5px; font-size: 1em; border-radius: 4px; border: 1px solid #555; }
+    .overlay button { padding: 10px 20px; font-size: 1em; background: #e10600; border:none; color:#fff; border-radius:4px; cursor:pointer; }
+    .system { margin-bottom:20px; padding:20px; background:#232323; border:2px solid #e10600; border-radius:8px; }
+    .controls button { margin-right:8px; padding:8px 12px; background:#e10600; border:none; border-radius:4px; cursor:pointer; }
+    .controls button:disabled { background:#555; cursor:not-allowed; }
+    .timer { font-size:1.2em; margin:10px 0; }
+    #history { margin-top:40px; font-family:Arial; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border:1px solid #444; padding:8px; text-align:center; }
+    th { background:#e10600; }
+    td.payment input[type=checkbox] { width:16px; height:16px; cursor:pointer; }
+    td.payment input[type=checkbox][disabled] { cursor:not-allowed; }
   </style>
 </head>
 <body>
-  <h1><i class="fas fa-gamepad"></i> Game Shop Timer</h1>
+  <div id="login-overlay" class="overlay">
+    <h2>Login</h2>
+    <input id="username-input" placeholder="Username" /><br />
+    <input id="pin-input" type="password" placeholder="PIN" maxlength="4" /><br />
+    <button id="login-btn">Login</button>
+    <div id="login-error" style="color:red;margin-top:10px;"></div>
+  </div>
+
+  <h1>Game Shop Timer</h1>
   <div id="systems-container"></div>
 
-  <!-- Sounds -->
-  <audio id="start-sound" src="https://www.soundjay.com/buttons/sounds/beep-01a.mp3" preload="auto"></audio>
-  <audio id="warning-sound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
-  <audio id="end-sound" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
-
   <div id="history">
-    <h2><i class="fas fa-history"></i> Session History</h2>
+    <h2>Session History</h2>
     <button id="clear-history">Clear History</button>
     <table>
-      <thead><tr><th>System</th><th>Name</th><th>Players</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th><th>Amount</th></tr></thead>
+      <thead><tr><th>Sys</th><th>Name</th><th>Players</th><th>Date</th><th>Start</th><th>End</th><th>Dur</th><th>Amt</th><th>Cash</th><th>Online</th></tr></thead>
       <tbody id="history-body"></tbody>
     </table>
   </div>
@@ -44,22 +50,55 @@
   <script>
     // Firebase config
     const firebaseConfig = {
+
   apiKey: "AIzaSyCtUaG1qBPc2HNerZlooDzd5ZuVfgbJ3us",
+
   authDomain: "gamex-badb2.firebaseapp.com",
+
   databaseURL: "https://gamex-badb2-default-rtdb.firebaseio.com",
+
   projectId: "gamex-badb2",
+
   storageBucket: "gamex-badb2.firebasestorage.app",
+
   messagingSenderId: "122763084228",
+
   appId: "1:122763084228:web:9908f9a8b0092199fa6491"
+
 };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const RATES = { single: 80, double: 60 };
-    const TIME_OPTIONS = [{ label:'5', minutes:5},{label:'30',minutes:30},{label:'60',minutes:60}];
-    const startSound = document.getElementById('start-sound');
-    const warningSound = document.getElementById('warning-sound');
-    const endSound = document.getElementById('end-sound');
+    // Users and pins
+    const USERS = { 'Tabish':'0786', 'Saman':'1234' };
+    const CLEAR_PIN = '2025';
+
+    let currentUser = null;
+
+    // Login
+    document.getElementById('login-btn').onclick = () => {
+      const u = document.getElementById('username-input').value;
+      const p = document.getElementById('pin-input').value;
+      if (USERS[u] === p) {
+        currentUser = u;
+        document.getElementById('login-overlay').style.display = 'none';
+      } else document.getElementById('login-error').innerText = 'Invalid credentials';
+    };
+
+    // Clear history
+    document.getElementById('clear-history').onclick = async () => {
+      const pin = prompt('Enter clearing PIN:');
+      if (pin === CLEAR_PIN) {
+        await db.ref('sessions').remove();
+        renderHistory();
+      } else alert('Wrong PIN');
+    };
+
+    // Utility: 12h format
+    function formatTime(date) {
+      const opts = { hour:'numeric', minute:'numeric', hour12:true };
+      return date.toLocaleTimeString('en-US', opts);
+    }
 
     class GameSystem {
       constructor(id) {
@@ -70,10 +109,10 @@
       }
       initUI() {
         const c = document.createElement('div'); c.className='system';
-        c.innerHTML = `<h2>System ${this.id}</h2>
-          <label>Name:<input id="name-${this.id}"/></label>
-          <label>Players:<select id="players-${this.id}"><option value="1">1</option><option value="2">2</option></select></label>
-          <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o=>`<option value='${o.minutes}'>${o.label}m</option>`).join('')}</select></label>
+        c.innerHTML = `<h3>System ${this.id}</h3>
+          <label>Name:<input id="name-${this.id}" /></label>
+          <label>Players:<select id="players-${this.id}"><option>1</option><option>2</option></select></label>
+          <label>Time:<select id="slot-${this.id}"><option>3</option><option>30</option><option>60</option></select>min</label>
           <div class='controls'>
             <button id='start-${this.id}'>Start</button>
             <button id='end-${this.id}' disabled>End</button>
@@ -83,79 +122,142 @@
           <div id='timer-${this.id}' class='timer'>Not started</div>
           <div id='amount-${this.id}'></div>`;
         document.getElementById('systems-container').appendChild(c);
-        this.nameI=document.getElementById(`name-${this.id}`);
-        this.pl=document.getElementById(`players-${this.id}`);
-        this.sl=document.getElementById(`slot-${this.id}`);
-        this.startBtn=document.getElementById(`start-${this.id}`);
-        this.endBtn=document.getElementById(`end-${this.id}`);
-        this.addBtn=document.getElementById(`add-${this.id}`);
-        this.remBtn=document.getElementById(`remove-${this.id}`);
-        this.td=document.getElementById(`timer-${this.id}`);
-        this.ad=document.getElementById(`amount-${this.id}`);
-        this.startBtn.onclick=()=>this.start();
-        this.endBtn.onclick=()=>this.end();
-        this.addBtn.onclick=()=>this.adjust(30);
-        this.remBtn.onclick=()=>this.adjust(-30);
+        this.nameI = document.getElementById(`name-${this.id}`);
+        this.pl = document.getElementById(`players-${this.id}`);
+        this.sl = document.getElementById(`slot-${this.id}`);
+        this.startBtn = document.getElementById(`start-${this.id}`);
+        this.endBtn   = document.getElementById(`end-${this.id}`);
+        this.addBtn   = document.getElementById(`add-${this.id}`);
+        this.remBtn   = document.getElementById(`remove-${this.id}`);
+        this.td = document.getElementById(`timer-${this.id}`);
+        this.ad = document.getElementById(`amount-${this.id}`);
+        this.startBtn.onclick = () => this.start();
+        this.endBtn.onclick   = () => this.end();
+        this.addBtn.onclick   = () => this.adjust(30);
+        this.remBtn.onclick   = () => this.adjust(-30);
       }
       listen() {
-        this.ref.on('value',snap=>{
-          const val=snap.val();
-          if(val) this.resume(val);
+        this.ref.on('value', snap => {
+          const v = snap.val();
+          if (v) this.resume(v);
           else this.reset();
         });
       }
-      resume(val){
-        this.nameI.value=val.name; this.pl.value=val.players;
-        this.startTime=new Date(val.start);
-        this.endTime=new Date(val.end);
+      resume(v) {
+        this.nameI.value = v.name;
+        this.pl.value   = v.players;
+        this.startTime  = new Date(v.start);
+        this.endTime    = new Date(v.end);
         this.updateAmount();
-        this.startBtn.disabled=true;
-        this.endBtn.disabled=false; this.addBtn.disabled=false; this.remBtn.disabled=false;
-        clearInterval(this.iv); this.iv=setInterval(()=>this.tick(),1000); this.tick();
+        this.startBtn.disabled = true;
+        this.endBtn.disabled   = false;
+        this.addBtn.disabled   = false;
+        this.remBtn.disabled   = false;
+        clearInterval(this.iv);
+        this.iv = setInterval(() => this.tick(), 1000);
+        this.tick();
       }
-      reset(){
-        this.td.textContent='Not started'; this.ad.textContent='';
-        this.startBtn.disabled=false;
-        this.endBtn.disabled=true; this.addBtn.disabled=true; this.remBtn.disabled=true;
+      reset() {
+        this.td.textContent = 'Not started';
+        this.ad.textContent = '';
+        this.startBtn.disabled = false;
+        this.endBtn.disabled   = true;
+        this.addBtn.disabled   = true;
+        this.remBtn.disabled   = true;
         clearInterval(this.iv);
       }
-      start(){
-        if(!this.nameI.value.trim()){alert('Enter name');return;}
-        if(!confirm('Start session?'))return;
-        const players=parseInt(this.pl.value), slot=parseInt(this.sl.value);
-        const now=new Date(); const end=new Date(now.getTime()+slot*60000);
-        this.ref.set({name:this.nameI.value,players,slot,start:now.toISOString(),end:end.toISOString()});
-        startSound.play();
+      start() {
+        if(!this.nameI.value) { alert('Enter name'); return; }
+        if(!confirm('Start session?')) return;
+        const now = new Date();
+        const slot = parseInt(this.sl.value);
+        this.endTime = new Date(now.getTime() + slot*60000);
+        this.ref.set({
+          name: this.nameI.value,
+          players: this.pl.value,
+          start: now.toISOString(),
+          end:   this.endTime.toISOString()
+        });
       }
-      tick(){
-        const now=new Date();
-        if(now>=this.alertTime() && now< this.endTime && !this.alerted){warningSound.play();this.alerted=true;}
-        if(now>=this.endTime){this.end();return;}
-        const diff=this.endTime-now, m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000);
-        this.td.textContent=`${m}m ${s}s remaining`;
+      tick() {
+        const now = new Date();
+        if(now >= new Date(this.endTime.getTime()-2*60000) && !this.alerted) { warningSound.play(); this.alerted=true; }
+        if(now >= this.endTime) { this.end(); return; }
+        const diff = this.endTime - now;
+        const m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
+        this.td.textContent = `${m}m ${s}s remaining`;
       }
-      alertTime(){return new Date(this.endTime.getTime()-2*60000);}
-      end(){
-        if(!confirm('End session?'))return;
-        const now=new Date(); endSound.play();
-        // record history
-        db.ref('sessions').push({system:this.id,name:this.nameI.value,players:this.pl.value,date:this.startTime.toLocaleDateString(),start:this.startTime.toLocaleTimeString(),end:now.toLocaleTimeString(),duration:Math.ceil((now-this.startTime)/60000),amount:this.computeCharge(now)});
+      end() {
+        if(!confirm('End session?')) return;
+        const now = new Date();
+        const rec = {
+          system: this.id,
+          name: this.nameI.value,
+          players: this.pl.value,
+          date: now.toLocaleDateString(),
+          start: formatTime(this.startTime),
+          end:   formatTime(now),
+          duration: Math.ceil((now-this.startTime)/60000),
+          amount: this.computeCharge(now),
+          cash:false, online:false,
+          user: currentUser
+        };
+        db.ref('sessions').push(rec);
         this.ref.remove();
+        renderHistory();
       }
-      adjust(minutes){
-        if(!confirm(`Adjust time by ${minutes} minutes?`))return;
-        this.endTime=new Date(this.endTime.getTime()+minutes*60000);
+      adjust(mins) {
+        if(!confirm(`Adjust by ${mins} min?`)) return;
+        this.endTime = new Date(this.endTime.getTime()+mins*60000);
         this.ref.child('end').set(this.endTime.toISOString());
+        this.updateAmount();
       }
-      computeCharge(endTime){const elapsed=(endTime-this.startTime)/60000; if(elapsed<=3)return 0; return ((elapsed>30?Math.ceil(elapsed/30)*30:30)*(this.pl.value==1?RATES.single:RATES.double)/60).toFixed(2);}    
-      updateAmount(){const total=((this.endTime-this.startTime)/60000)*(this.pl.value==1?RATES.single:RATES.double)/60; this.ad.textContent=`Amt:₹${total.toFixed(2)}`;}
+      computeCharge(now) {
+        const elapsed = (now - this.startTime)/60000;
+        if(elapsed <=3) return 0;
+        const blocks = Math.ceil(elapsed/30);
+        return ((blocks*30)*(this.pl.value==1?RATES.single:RATES.double)/60).toFixed(2);
+      }
+      updateAmount() {
+        const total = ((this.endTime - this.startTime)/60000)*(this.pl.value==1?RATES.single:RATES.double)/60;
+        this.ad.textContent = `Amt: ₹${total.toFixed(2)}`;
+      }
     }
 
-    function renderHistory(){const body=document.getElementById('history-body'); body.innerHTML='';
-      db.ref('sessions').once('value',snap=>{snap.forEach(c=>{const r=c.val();const tr=document.createElement('tr');tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;body.appendChild(tr);});});}
+    function renderHistory() {
+      const body = document.getElementById('history-body'); body.innerHTML='';
+      db.ref('sessions').once('value',snap=>{
+        snap.forEach(child=>{
+          const r = child.val();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.system}</td>
+            <td>${r.name}</td>
+            <td>${r.players}</td>
+            <td>${r.date}</td>
+            <td>${r.start}</td>
+            <td>${r.end}</td>
+            <td>${r.duration}</td>
+            <td>₹${r.amount}</td>
+            <td class="payment"><input type="checkbox" data-key="${child.key}" data-type="cash" ${r.cash?'checked disabled':''} /></td>
+            <td class="payment"><input type="checkbox" data-key="${child.key}" data-type="online" ${r.online?'checked disabled':''} /></td>
+          `;
+          body.appendChild(tr);
+        });
+        // bind checkboxes
+        document.querySelectorAll('td.payment input').forEach(cb=>{
+          cb.onchange = () => {
+            const key = cb.dataset.key;
+            const type = cb.dataset.type;
+            db.ref(`sessions/${key}/${type}`).set(cb.checked);
+            setTimeout(() => cb.disabled=true, 30000);
+          };
+        });
+      });
+    }
 
-    document.getElementById('clear-history').onclick=()=>{if(confirm('Clear all history?'))db.ref('sessions').remove().then(()=>renderHistory());};
-    for(let i=1;i<=3;i++)new GameSystem(i);
+    // Init three systems
+    for(let i=1;i<=3;i++) new GameSystem(i);
     renderHistory();
   </script>
 </body>
