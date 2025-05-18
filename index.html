@@ -11,16 +11,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     body { font-family: 'Orbitron', sans-serif; background: linear-gradient(135deg, #1b1b1b, #111); color: #fff; margin: 20px; }
-    h1, h2 { color: #e10600; text-shadow: 0 0 8px rgba(225,6,0,0.8); }
+    h1, h2 { color: #e10600; }
     .system { background: #232323; border: 2px solid #e10600; padding: 20px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 6px 15px rgba(0,0,0,0.8); }
     .controls { margin-top: 15px; }
-    .controls button { background: #e10600; color: #fff; border: none; padding: 10px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: .2s; }
-    .controls button:hover { background: #ff3a3a; transform: scale(1.1); }
-    .timer { font-size: 1.4em; font-weight: bold; margin-top: 12px; animation: pulseTimer 2s infinite; }
-    @keyframes pulseTimer { 0%,100% { text-shadow: 0 0 5px rgba(225,6,0,0.8); } 50% { text-shadow: 0 0 15px rgba(225,6,0,1); } }
+    .controls button { background: #e10600; color: #fff; border: none; padding: 10px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .controls button:disabled { background: #555; cursor: not-allowed; }
+    .timer { font-size: 1.4em; margin-top: 12px; }
     #history { margin-top: 40px; font-family: Arial, sans-serif; font-size: 0.9em; }
-    #clear-history { background: #e10600; color: #fff; padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 10px; }
-    #clear-history:hover { background: #ff3a3a; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #444; padding: 10px; text-align: center; }
     th { background: #e10600; color: #fff; }
@@ -31,21 +28,21 @@
   <div id="systems-container"></div>
 
   <!-- Sounds -->
-  <audio id="start-sound" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+  <audio id="start-sound" src="https://www.soundjay.com/buttons/sounds/beep-01a.mp3" preload="auto"></audio>
   <audio id="warning-sound" src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" preload="auto"></audio>
   <audio id="end-sound" src="https://www.soundjay.com/button/sounds/button-16.mp3" preload="auto"></audio>
 
   <div id="history">
     <h2><i class="fas fa-history"></i> Session History</h2>
-    <button id="clear-history"><i class="fas fa-trash-alt"></i> Clear History</button>
+    <button id="clear-history">Clear History</button>
     <table>
-      <thead><tr><th>System</th><th>Name</th><th>Players</th><th>Date</th><th>Start</th><th>End</th><th>Duration(min)</th><th>Amount(₹)</th></tr></thead>
+      <thead><tr><th>System</th><th>Name</th><th>Players</th><th>Date</th><th>Start</th><th>End</th><th>Duration</th><th>Amount</th></tr></thead>
       <tbody id="history-body"></tbody>
     </table>
   </div>
 
   <script>
-    // Firebase configuration (replace with your own free-tier project keys)
+    // Firebase config
     const firebaseConfig = {
   apiKey: "AIzaSyCtUaG1qBPc2HNerZlooDzd5ZuVfgbJ3us",
   authDomain: "gamex-badb2.firebaseapp.com",
@@ -59,7 +56,7 @@
     const db = firebase.database();
 
     const RATES = { single: 80, double: 60 };
-    const TIME_OPTIONS = [ { label: '30 minutes', minutes: 30 }, { label: '5 minutes', minutes: 5 }, { label: '1 hour', minutes: 60 } ];
+    const TIME_OPTIONS = [{ label:'5', minutes:5},{label:'30',minutes:30},{label:'60',minutes:60}];
     const startSound = document.getElementById('start-sound');
     const warningSound = document.getElementById('warning-sound');
     const endSound = document.getElementById('end-sound');
@@ -67,111 +64,98 @@
     class GameSystem {
       constructor(id) {
         this.id = id;
+        this.ref = db.ref('activeSessions/' + id);
         this.initUI();
+        this.listen();
       }
       initUI() {
-        const c = document.createElement('div'); c.className = 'system';
-        c.innerHTML = `
-          <h2><i class="fas fa-desktop"></i> System ${this.id}</h2>
+        const c = document.createElement('div'); c.className='system';
+        c.innerHTML = `<h2>System ${this.id}</h2>
           <label>Name:<input id="name-${this.id}"/></label>
           <label>Players:<select id="players-${this.id}"><option value="1">1</option><option value="2">2</option></select></label>
-          <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o=>`<option value="${o.minutes}">${o.label}</option>`).join('')}</select></label>
-          <div class="controls">
-            <button id="start-${this.id}"><i class="fas fa-play"></i> Start</button>
-            <button id="end-${this.id}"><i class="fas fa-stop-circle"></i> End</button>
-            <button id="add-${this.id}"><i class="fas fa-plus"></i> +30</button>
-            <button id="remove-${this.id}"><i class="fas fa-minus"></i> -30</button>
+          <label>Time:<select id="slot-${this.id}">${TIME_OPTIONS.map(o=>`<option value='${o.minutes}'>${o.label}m</option>`).join('')}</select></label>
+          <div class='controls'>
+            <button id='start-${this.id}'>Start</button>
+            <button id='end-${this.id}' disabled>End</button>
+            <button id='add-${this.id}' disabled>+30</button>
+            <button id='remove-${this.id}' disabled>-30</button>
           </div>
-          <div id="timer-${this.id}" class="timer">Not started</div>
-          <div id="amount-${this.id}"></div>
-        `;
+          <div id='timer-${this.id}' class='timer'>Not started</div>
+          <div id='amount-${this.id}'></div>`;
         document.getElementById('systems-container').appendChild(c);
-        this.nameI = document.getElementById(`name-${this.id}`);
-        this.pl = document.getElementById(`players-${this.id}`);
-        this.sl = document.getElementById(`slot-${this.id}`);
-        this.td = document.getElementById(`timer-${this.id}`);
-        this.ad = document.getElementById(`amount-${this.id}`);
-        document.getElementById(`start-${this.id}`).onclick = () => this.startTimer();
-        document.getElementById(`end-${this.id}`).onclick = () => this.endSession();
-        document.getElementById(`add-${this.id}`).onclick = () => this.modifyTime(30);
-        document.getElementById(`remove-${this.id}`).onclick = () => this.modifyTime(-30);
+        this.nameI=document.getElementById(`name-${this.id}`);
+        this.pl=document.getElementById(`players-${this.id}`);
+        this.sl=document.getElementById(`slot-${this.id}`);
+        this.startBtn=document.getElementById(`start-${this.id}`);
+        this.endBtn=document.getElementById(`end-${this.id}`);
+        this.addBtn=document.getElementById(`add-${this.id}`);
+        this.remBtn=document.getElementById(`remove-${this.id}`);
+        this.td=document.getElementById(`timer-${this.id}`);
+        this.ad=document.getElementById(`amount-${this.id}`);
+        this.startBtn.onclick=()=>this.start();
+        this.endBtn.onclick=()=>this.end();
+        this.addBtn.onclick=()=>this.adjust(30);
+        this.remBtn.onclick=()=>this.adjust(-30);
       }
-      startTimer() {
-        if (!this.nameI.value.trim()) { alert('Enter name'); return; }
-        const mins = parseInt(this.sl.value), players = parseInt(this.pl.value);
-        this.startTime = new Date();
-        this.endTime = new Date(this.startTime.getTime() + mins * 60000);
-        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
-        this.computeAmount(players, mins);
-        clearInterval(this.iv); this.alerted = false;
-        startSound.play();
-        this.iv = setInterval(() => this.update(), 1000); this.update();
-      }
-      update() {
-        const now = new Date();
-        if (now >= this.alertTime && now < this.endTime && !this.alerted) { warningSound.play(); this.alerted = true; }
-        if (now >= this.endTime) { clearInterval(this.iv); this.td.textContent = 'Session ended'; endSound.play(); this.saveRecord(this.endTime); return; }
-        const diff = this.endTime - now, m = Math.floor(diff / 60000), s = Math.floor((diff % 60000) / 1000);
-        this.td.textContent = `${m}m ${s}s remaining`;
-      }
-      endSession() {
-        if (!this.startTime) return;
-        clearInterval(this.iv);
-        const now = new Date();
-        this.td.textContent = 'Session ended';
-        endSound.play();
-        this.saveRecord(now);
-      }
-      modifyTime(d) {
-        if (!this.endTime) return;
-        this.endTime = new Date(this.endTime.getTime() + d * 60000);
-        this.alertTime = new Date(this.endTime.getTime() - 2 * 60000);
-      }
-      computeAmount(p, mins) {
-        this.currentAmt = +(((p === 1 ? RATES.single : RATES.double) / 60) * mins * p).toFixed(2);
-        this.ad.textContent = `Amt:₹${this.currentAmt}`;
-      }
-      saveRecord(endTime) {
-        const elapsed = (endTime - this.startTime) / 60000;
-        let amt = 0;
-        if (elapsed > 3) {
-          amt = +(((parseInt(this.pl.value) === 1 ? RATES.single : RATES.double) / 60) * 30 * parseInt(this.pl.value)).toFixed(2);
-        }
-        const rec = {
-          system: this.id,
-          name: this.nameI.value,
-          players: this.pl.value,
-          date: this.startTime.toLocaleDateString(),
-          start: this.startTime.toLocaleTimeString(),
-          end: endTime.toLocaleTimeString(),
-          duration: Math.ceil(elapsed),
-          amount: amt
-        };
-        // Write to Firebase Realtime DB
-        const newRef = firebase.database().ref('sessions').push();
-        newRef.set(rec);
-        renderHistory();
-      }
-    }
-
-    function renderHistory() {
-      const body = document.getElementById('history-body'); body.innerHTML = '';
-      firebase.database().ref('sessions').once('value', snapshot => {
-        snapshot.forEach(child => {
-          const r = child.val();
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;
-          body.appendChild(tr);
+      listen() {
+        this.ref.on('value',snap=>{
+          const val=snap.val();
+          if(val) this.resume(val);
+          else this.reset();
         });
-      });
+      }
+      resume(val){
+        this.nameI.value=val.name; this.pl.value=val.players;
+        this.startTime=new Date(val.start);
+        this.endTime=new Date(val.end);
+        this.updateAmount();
+        this.startBtn.disabled=true;
+        this.endBtn.disabled=false; this.addBtn.disabled=false; this.remBtn.disabled=false;
+        clearInterval(this.iv); this.iv=setInterval(()=>this.tick(),1000); this.tick();
+      }
+      reset(){
+        this.td.textContent='Not started'; this.ad.textContent='';
+        this.startBtn.disabled=false;
+        this.endBtn.disabled=true; this.addBtn.disabled=true; this.remBtn.disabled=true;
+        clearInterval(this.iv);
+      }
+      start(){
+        if(!this.nameI.value.trim()){alert('Enter name');return;}
+        if(!confirm('Start session?'))return;
+        const players=parseInt(this.pl.value), slot=parseInt(this.sl.value);
+        const now=new Date(); const end=new Date(now.getTime()+slot*60000);
+        this.ref.set({name:this.nameI.value,players,slot,start:now.toISOString(),end:end.toISOString()});
+        startSound.play();
+      }
+      tick(){
+        const now=new Date();
+        if(now>=this.alertTime() && now< this.endTime && !this.alerted){warningSound.play();this.alerted=true;}
+        if(now>=this.endTime){this.end();return;}
+        const diff=this.endTime-now, m=Math.floor(diff/60000), s=Math.floor((diff%60000)/1000);
+        this.td.textContent=`${m}m ${s}s remaining`;
+      }
+      alertTime(){return new Date(this.endTime.getTime()-2*60000);}
+      end(){
+        if(!confirm('End session?'))return;
+        const now=new Date(); endSound.play();
+        // record history
+        db.ref('sessions').push({system:this.id,name:this.nameI.value,players:this.pl.value,date:this.startTime.toLocaleDateString(),start:this.startTime.toLocaleTimeString(),end:now.toLocaleTimeString(),duration:Math.ceil((now-this.startTime)/60000),amount:this.computeCharge(now)});
+        this.ref.remove();
+      }
+      adjust(minutes){
+        if(!confirm(`Adjust time by ${minutes} minutes?`))return;
+        this.endTime=new Date(this.endTime.getTime()+minutes*60000);
+        this.ref.child('end').set(this.endTime.toISOString());
+      }
+      computeCharge(endTime){const elapsed=(endTime-this.startTime)/60000; if(elapsed<=3)return 0; return ((elapsed>30?Math.ceil(elapsed/30)*30:30)*(this.pl.value==1?RATES.single:RATES.double)/60).toFixed(2);}    
+      updateAmount(){const total=((this.endTime-this.startTime)/60000)*(this.pl.value==1?RATES.single:RATES.double)/60; this.ad.textContent=`Amt:₹${total.toFixed(2)}`;}
     }
 
-    document.getElementById('clear-history').onclick = () => {
-      firebase.database().ref('sessions').remove();
-      document.getElementById('history-body').innerHTML = '';
-    };
+    function renderHistory(){const body=document.getElementById('history-body'); body.innerHTML='';
+      db.ref('sessions').once('value',snap=>{snap.forEach(c=>{const r=c.val();const tr=document.createElement('tr');tr.innerHTML=`<td>${r.system}</td><td>${r.name}</td><td>${r.players}</td><td>${r.date}</td><td>${r.start}</td><td>${r.end}</td><td>${r.duration}</td><td>₹${r.amount}</td>`;body.appendChild(tr);});});}
 
-    for (let i = 1; i <= 3; i++) new GameSystem(i);
+    document.getElementById('clear-history').onclick=()=>{if(confirm('Clear all history?'))db.ref('sessions').remove().then(()=>renderHistory());};
+    for(let i=1;i<=3;i++)new GameSystem(i);
     renderHistory();
   </script>
 </body>
